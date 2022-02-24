@@ -13,50 +13,57 @@ int interval = 1000;
 void setup() {
     M5.begin();
     M5.Power.begin();
-
-    while (!Serial); // A quoi correspond cette syntaxe ???
-
-    Serial.println("LoRa Duplex B");
-
-    // override the default CS, reset, and IRQ pins (optional).
-    LoRa.setPins();// set CS, reset, IRQ pin.
-
-    if (!LoRa.begin(868E6)) {
-        Serial.println("LoRa init failed. Check your connections.");
-        while (true);
-    }
-
-    Serial.println("LoRa init succeeded.");
     M5.Lcd.println("I love my job");
+
+    initLoraModule();
 }
 
 void loop() {
-    if (millis() - lastSendTime > interval) { // Envoie un message toutes les 1000sc
-        String message = "HeLoRa World!";   // send a message.  发送消息
-        sendMessage(message);
-        Serial.println("Sending " + message);
-        M5.Lcd.setTextColor(BLUE);
-        M5.Lcd.println("Sending " + message);
-        lastSendTime = millis();            // timestamp the message.  给消息加时间戳
-        interval = random(1000) + 500;
+
+    if(M5.BtnA.wasPressed()){
+        pressBtnA();
+    }
+
+    if(M5.BtnB.wasPressed()){
+        pressBtnB();
+    }
+
+    if(M5.BtnC.wasPressed()){
+        pressBtnC();
     }
 
     // parse for a packet, and call onReceive with the result:.  解析数据包，并使用结果调用 onReceive：
     onReceive(LoRa.parsePacket());
 
-    if(M5.BtnA.wasPressed()){
-        M5.Lcd.setCursor(0, 0);
-        M5.Lcd.clear(BLACK);
-    }
-
-    if(M5.BtnB.wasPressed()){
-        reinit();
-    }
-
     M5.update();
 }
 
-void reinit(){
+// FONCTIONS APPELER LORSQUE L'UTILISATEUR UTILISE LES BOUTONS DU M5
+void pressBtnA() {
+    String message = "HeLoRa World!";   // send a message.  发送消息
+    sendMessage(message);
+    Serial.println("Sending " + message);
+    M5.Lcd.setTextColor(BLUE);
+    M5.Lcd.println("Sending " + message);
+}
+
+// Bouton du milieu
+void pressBtnB() {
+    initLoraModule();
+}
+
+void pressBtnC() {
+    clearLCD();
+}
+
+// Reinitialise l'écran du M5 (Affiche un écran noir et replace le pointeur au début)
+void clearLCD() {
+    M5.Lcd.setCursor(0, 0);
+    M5.Lcd.clear(BLACK);
+}
+
+// Initialise le module LoRa
+void initLoraModule(){
     Serial.println("LoRa Duplex Reinitialization");
 
     // override the default CS, reset, and IRQ pins (optional).  覆盖默认的 CS、复位和 IRQ 引脚（可选）
@@ -70,8 +77,11 @@ void reinit(){
         while (true);                       // if failed, do nothing.  如果失败，什么都不做
     }
 
+    M5.Lcd.println("LoRa init succeeded.");
     Serial.println("LoRa init succeeded.");
 }
+
+
 
 // Envoie un message en LoRa
 void sendMessage(String outgoing) {
@@ -85,7 +95,7 @@ void sendMessage(String outgoing) {
     msgCount++;                           // increment message ID.
 }
 
-// Lorsque le module reçois un message LoRAa
+// Fonction appelé lorsqu'un message LoRa est reçu
 void onReceive(int packetSize) {
     if (packetSize == 0) { // Si il n'y a pas de packet on s'arrete la.
         return;
