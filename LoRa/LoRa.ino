@@ -7,9 +7,6 @@ byte msgCount = 0;
 byte localAddress = 0xFF; // ⚠️ ADRESSE DU MICRO-CONTROLLEUR
 byte destination = 0xFF;  // ⚠️ ADRESSE DE DESTINATION
 
-long lastSendTime = 0;
-int interval = 1000;
-
 void setup() {
     M5.begin();
     M5.Power.begin();
@@ -39,6 +36,8 @@ void loop() {
 }
 
 // FONCTIONS APPELER LORSQUE L'UTILISATEUR UTILISE LES BOUTONS DU M5
+
+// Bouton à gauche
 void pressBtnA() {
     String message = "HeLoRa World!";   // send a message.  发送消息
     sendMessage(message);
@@ -47,11 +46,12 @@ void pressBtnA() {
     M5.Lcd.println("Sending " + message);
 }
 
-// Bouton du milieu
+// Bouton au milieu
 void pressBtnB() {
     initLoraModule();
 }
 
+// Bouton à droite
 void pressBtnC() {
     clearLCD();
 }
@@ -80,8 +80,6 @@ void initLoraModule(){
     M5.Lcd.println("LoRa init succeeded.");
     Serial.println("LoRa init succeeded.");
 }
-
-
 
 // Envoie un message en LoRa
 void sendMessage(String outgoing) {
