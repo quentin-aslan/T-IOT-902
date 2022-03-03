@@ -3,9 +3,9 @@
 
 String outgoing;
 
-byte msgCount = 0;
+byte msgCount = 0; // Pour ID unique
 byte localAddress = 0xFF; // ⚠️ ADRESSE DU MICRO-CONTROLLEUR
-byte destination = 0xFF;  // ⚠️ ADRESSE DE DESTINATION
+byte destination = 0xAF;  // ⚠️ ADRESSE DE DESTINATION
 
 void setup() {
     M5.begin();

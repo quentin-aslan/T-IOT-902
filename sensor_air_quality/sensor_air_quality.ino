@@ -1,7 +1,12 @@
 #include <M5Stack.h>
-#include "Free_Fonts.h"
 #include <Wire.h>
+
+// AIR QUALITY
+#include "Free_Fonts.h"
 #include "DFRobot_SHT20.h"
+
+// LORA
+#include <M5LoRa.h>
 
 DFRobot_SHT20 sht20;
 
@@ -30,15 +35,46 @@ void setup() {
     M5.Lcd.fillScreen(TFT_BLACK);
     header("P M 2.5", TFT_BLACK);
 
-    // INIT PM2 QUALITY AIR SENSOR
+    initPM2();
+
+    initSHT20();
+
+    initLoraModule();
+}
+
+// INIT PM2 QUALITY AIR SENSOR
+void initPM2() {
     Serial2.begin(9600, SERIAL_8N1, 16, 17);
     pinMode(13, OUTPUT);
     digitalWrite(13, 1);
+}
 
+// INIT FUNCTION
+
+void initSHT20() { // TEMPERATURE AND HUMIDITY
     // INIT SHT20 TEMP & HUMIDITY SENSOR
     sht20.initSHT20();                                  // Init SHT20 Sensor
     delay(100);
     sht20.checkSHT20();
+}
+
+// Initialise le module LoRa
+void initLoraModule(){
+    Serial.println("LoRa Duplex Reinitialization");
+
+    // override the default CS, reset, and IRQ pins (optional).  覆盖默认的 CS、复位和 IRQ 引脚（可选）
+    LoRa.setPins();// set CS, reset, IRQ pin.  设置 CS、复位、IRQ 引脚
+
+    if (!LoRa.begin(868E6)) {             // initialize ratio at 868 MHz.  868 MHz 时的初始化比率
+        Serial.println("LoRa init failed. Check your connections.");
+        M5.Lcd.setCursor(0, 0);
+        M5.Lcd.setTextColor(RED);
+        M5.Lcd.println("Init failed!!!");
+        while (true);                       // if failed, do nothing.  如果失败，什么都不做
+    }
+
+    M5.Lcd.println("LoRa init succeeded.");
+    Serial.println("LoRa init succeeded.");
 }
 
 #define FRONT 2
@@ -59,17 +95,17 @@ int16_t SPM_PM25 =              0; // p_val[3]
 int16_t SPM_PM10 =              0; // p_val[4]
 
 // A T M E
-int16_t ATME_PM1 =               0; // p_val[5]
-int16_t ATME_PM25 =              0; // p_val[6]
-int16_t ATME_PM10 =              0; // p_val[7]
+int16_t ATME_PM1 =              0; // p_val[5]
+int16_t ATME_PM25 =             0; // p_val[6]
+int16_t ATME_PM10 =             0; // p_val[7]
 
 // number of particules
-int16_t _03um =             0; // p_val[8];
-int16_t _05um =             0; // p_val[9];
-int16_t _1um =              0; // p_val[10];
-int16_t _2_5um =            0; // p_val[11];
-int16_t _5um =              0; // p_val[12];
-int16_t _10um =             0; // p_val[13];
+int16_t _03um =                 0; // p_val[8];
+int16_t _05um =                 0; // p_val[9];
+int16_t _1um =                  0; // p_val[10];
+int16_t _2_5um =                0; // p_val[11];
+int16_t _5um =                  0; // p_val[12];
+int16_t _10um =                 0; // p_val[13];
 
 void getTempHum() {
     humidity = sht20.readHumidity();                  // Read Humidity
@@ -100,22 +136,22 @@ void sortPM2Values() {
     }
 
     // S P M
-    SPM_PM1 =               p_val[2];
-    SPM_PM25 =              p_val[3];
-    SPM_PM10 =              p_val[4];
+    SPM_PM1 =   p_val[2];
+    SPM_PM25 =  p_val[3];
+    SPM_PM10 =  p_val[4];
 
     // A T M E
-    ATME_PM1 =               p_val[5];
-    ATME_PM25 =              p_val[6];
-    ATME_PM10 =              p_val[7];
+    ATME_PM1 =  p_val[5];
+    ATME_PM25 = p_val[6];
+    ATME_PM10 = p_val[7];
 
     // Number of particules
-    _03um =             p_val[8];
-    _05um =             p_val[9];
-    _1um =              p_val[10];
-    _2_5um =            p_val[11];
-    _5um =              p_val[12];
-    _10um =             p_val[13];
+    _03um =     p_val[8];
+    _05um =     p_val[9];
+    _1um =      p_val[10];
+    _2_5um =    p_val[11];
+    _5um =      p_val[12];
+    _10um =     p_val[13];
 
 }
 
@@ -226,14 +262,59 @@ void LCD_Display_Val(void) {
 }
 
 void loop() {
+    if(M5.BtnA.wasPressed()){
+        pressBtnA();
+    }
+
     getPM2Values();
 
     if (i == PM2_DATAS_LEN) {
-        Serial.println("--------------------------------------------------------------------------------------------------------------------------------");
         getTempHum();
         sortPM2Values();
         LCD_Display_Val();
-        Serial.println("Finiis, on recommence");
+        String message = "HeLoRa World!";   // send a message.  发送消息
+        sendMessage(message);
     }
 
+    if(M5.BtnB.wasPressed()){
+        pressBtnB();
+    }
+
+    if(M5.BtnC.wasPressed()){
+        pressBtnC();
+    }
+}
+
+// Bouton à gauche
+void pressBtnA() {
+    String message = "HeLoRa World!";   // send a message.  发送消息
+    sendMessage(message);
+    Serial.println("Sending " + message);
+    M5.Lcd.setTextColor(BLUE);
+    M5.Lcd.println("Sending " + message);
+}
+
+// Bouton au milieu
+void pressBtnB() {
+
+}
+
+// Bouton à droite
+void pressBtnC() {
+    
+}
+
+// Envoie un message en LoRa
+byte msgCount = 0; // Pour ID unique
+byte localAddress = 0xFF; // ⚠️ ADRESSE DU MICRO-CONTROLLEUR
+byte destination = 0xAF;  // ⚠️ ADRESSE DE DESTINATION
+void sendMessage(String payload) {
+    LoRa.beginPacket();                   // start packet.
+    LoRa.write(destination);              // add destination address.
+    LoRa.write(localAddress);             // add sender address.
+    LoRa.write(msgCount);                 // add message ID.
+    LoRa.write(payload.length());         // add payload length.
+    LoRa.print(payload);                  // add payload.
+    LoRa.endPacket();                     // finish packet and send it.
+    msgCount++;                           // increment message ID.
 }
