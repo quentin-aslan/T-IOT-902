@@ -15,7 +15,7 @@ const char* password = "quentin1";
 
 // WIFI ACCESS POINT
 const char* AP_ssid     = "I love my job";
-const char* AP_password = "Skribbl.io";
+const char* AP_password = "quentin1";
 IPAddress AP_local_ip(192,168,3,1);
 IPAddress AP_gateway(192,168,3,1);
 IPAddress AP_subnet(255,255,255,0);
@@ -81,15 +81,25 @@ void WebServer_OnConnect() {
 
 void WebServer_UpdateDatas() {
     Serial.println("Client connect to : /");
+    Serial.println(WebServer_SERVER.args());
 
     if(WebServer_SERVER.args() == 0) { // Si il y a aucun arguments, on renvoie la page d'accueil !
         WebServer_OnConnect();
     } else {
-        if(server.hasArg("gateway")) { // SI C'EST LA GATEWAY
+        if(WebServer_SERVER.hasArg("lora_address") && WebServer_SERVER.hasArg("name")) {
+            String lora_address = WebServer_SERVER.arg("lora_address");
+            String name = WebServer_SERVER.arg("name");
+            Serial.println("name");
+            Serial.println(name);
+            Serial.println("lora_address");
+            Serial.println(lora_address);
 
-        } else if (server.hasArg("sensor")) { // SI C'EST UN SENSOR
-            if(server.hasArg("LoRa_address") && server.hasArg("name") && server.hasArgs()) {
-
+            if(WebServer_SERVER.hasArg("lora_gateway")) {
+                String lora_gateway = WebServer_SERVER.arg("lora_gateway");
+                Serial.println("C'est le capteur.");
+            } else {
+                Serial.println("C'est une gateway.");
+                // ICI IL FAUT RENTRER LES INFOS DU SENSOR COMMUNITY PROJECT !!!
             }
         }
     }
@@ -116,8 +126,49 @@ String SendHTML(){
     ptr +="</style>\n";
     ptr +="</head>\n";
     ptr +="<body>\n";
-    ptr +="<h1>ESP32 Web Server</h1>\n";
-    ptr +="<h3>Using Access Point(AP) Mode</h3>\n";
+
+    // Fonction qui hide/show le LoraGateway
+    ptr +="<script>";
+    ptr +="function isGateway() {";
+    ptr +="if(document.getElementById('isGateway').checked){ alert('a'); document.getElementById('p_lora_gateway').style.display = 'none';}";
+    ptr +="if(!document.getElementById('isGateway').checked){ alert('b'); document.getElementById('p_lora_gateway').style.display = 'block';}";
+    ptr +="}";
+    ptr +="</script>";
+
+    ptr +="<h1>IOT WEB SERVIER</h1>\n";
+    ptr +="<h3>CONFIGURATION MODE</h3>\n";
+    ptr +="<h4>CONFIGURATION MODE</h4>\n";
+    ptr +="<form action='/updateDatas' method='get'>";
+
+    // Name
+    ptr +="<p>\n";
+    ptr +="<label for='name'>Name</label>\n";
+    ptr +="<input name='name' type='text' name='Lora Gateway / Sensor xxx'>\n";
+    ptr +="</p>\n";
+
+
+    // Gateway checkbox
+    ptr +="<p>\n";
+    ptr +="<label for='isGateway'>Gateway</label>\n";
+    ptr +="<input name='isGateway' id='isGateway' type='checkbox' onclick='isGateway()'>\n";
+    ptr +="</p>\n";
+
+    // LoRa Address
+    ptr +="<p>\n";
+    ptr +="<label for='lora_address'>LoRa Address</label>\n";
+    ptr +="<input name='lora_address' type='text'>\n";
+    ptr +="</p>\n";
+
+    // LoRa Gateway (FOR SENSOR ONLY)
+    ptr +="<p id='p_lora_gateway' style='display: none'>\n";
+    ptr +="<label for='lora_gateway'>LoRa Gateway</label>\n";
+    ptr +="<input name='lora_gateway' type='text'>\n";
+    ptr +="</p>\n";
+
+    ptr +="<p>\n";
+    ptr +="<input type='submit'>\n";
+    ptr +="</p>\n";
+    ptr +="</form>\n";
 
     ptr +="</body>\n";
     ptr +="</html>\n";
