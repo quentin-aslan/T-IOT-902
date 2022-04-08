@@ -8,9 +8,26 @@
  * DECLARE VARIABLE FOR ALL PROGRAM
  */
 
-/**
- * LoRA
- */
+// PERSITENT DATAS
+#include <Preferences.h>
+Preferences preferences;
+// Récupère les informations stocké en flash
+String _NAME = "";
+String _LORA_ADDRESS = "";
+String _LORA_GATEWAY = "";
+String _SSID = "";
+String _PASSWORD = "";
+
+void getPersistentDatas() {
+    preferences.begin("quentin", false);
+    _NAME = preferences.getString("name", "");
+    _LORA_ADDRESS = preferences.getString("lora_address", "");
+    _LORA_GATEWAY = preferences.getString("lora_gateway", "");
+    _SSID = preferences.getString("ssid", "");
+    _PASSWORD = preferences.getString("password", "");
+}
+
+// LoRA
 #include <M5LoRa.h>
 
 // Initialise le module LoRa
@@ -46,41 +63,45 @@ void sendMessage(String payload) {
 /**
  * WIFI CLIENT & ACCESS POINT
  */
+bool WIFI_isStarted = false;
 
 // WIFI CLIENT
-const char* ssid = "Mi 11 Lite";
-const char* password = "quentin1";
+//const char* ssid = "Mi 11 Lite";
+//const char* password = "quentin1";
 
-// WIFI ACCESS POINT
+// Si au bout de 20 secondes la connexion au wifi échoue, on créer l'access point
+void tryConnectWifiClient() {
+    if(_SSID == "") {
+        startWifiAccessPoint();
+    } else {
+        WiFi.begin(_SSID.c_str(), _PASSWORD.c_str());
+        Serial.println("Connecting to the WIFI ...");
+
+        int timer = 0;
+        while ((WiFi.status() != WL_CONNECTED) && timer != 20) {
+            delay(500);
+            Serial.print(".");
+            timer = timer + 1;
+        }
+
+        if(WiFi.status() == WL_CONNECTED) { // Connection au wifi réussie
+            Serial.println("");
+            Serial.print("Connected to WiFi network with IP Address: ");
+            Serial.println(WiFi.localIP());
+            WIFI_isStarted = true;
+        } else { // Connection au wifi échoué, création de l'access point
+            Serial.println("Connection à la wifi echoué, creation d'un access point");
+            startWifiAccessPoint();
+        }
+    }
+}
+
+// WIFI ACCESS POINT [DONNEE EN DURE]
 const char* AP_ssid     = "I love my job";
 const char* AP_password = "quentin1";
 IPAddress AP_local_ip(192,168,3,1);
 IPAddress AP_gateway(192,168,3,1);
 IPAddress AP_subnet(255,255,255,0);
-bool WIFI_isStarted = false;
-
-// Si au bout de 20 secondes la connexion au wifi échoue, on créer l'access point
-void tryConnectWifiClient() {
-    WiFi.begin(ssid, password);
-    Serial.println("Connecting to the WIFI ...");
-
-    int timer = 0;
-    while ((WiFi.status() != WL_CONNECTED) && timer != 20) {
-        delay(500);
-        Serial.print(".");
-        timer = timer + 1;
-    }
-
-    if(WiFi.status() == WL_CONNECTED) { // Connection au wifi réussie
-        Serial.println("");
-        Serial.print("Connected to WiFi network with IP Address: ");
-        Serial.println(WiFi.localIP());
-        WIFI_isStarted = true;
-    } else { // Connection au wifi échoué, création de l'access point
-        Serial.println("Connection à la wifi echoué, creation d'un access point");
-        startWifiAccessPoint();
-    }
-}
 
 void startWifiAccessPoint() {
     Serial.println("\n[*] Creating AP ...");
@@ -129,21 +150,40 @@ void WebServer_UpdateDatas() {
             String name = WebServer_SERVER.arg("name");
             String lora_address = WebServer_SERVER.arg("lora_address");
             String lora_gateway = WebServer_SERVER.arg("lora_gateway");
+            String ssid = WebServer_SERVER.arg("ssid");
+            String password = WebServer_SERVER.arg("password");
+
+            // DEBUG
             Serial.println("name :"); Serial.print(name);
             Serial.println("lora_address"); Serial.print(lora_address);
             Serial.println("lora_gateway :"); Serial.print(lora_gateway);
+            Serial.println("ssid :"); Serial.print(ssid);
+            Serial.println("password :"); Serial.print(password);
+
             Serial.println(WebServer_SERVER.hasArg("lora_gateway"));
 
-            Serial.println("strilin lora gateway");
+            Serial.println("strlen lora gateway");
             const char *lora_gateaway_char = lora_gateway.c_str();
-            int len = strlen(lora_gateaway_char);
-            Serial.println(len);
-            if(WebServer_SERVER.hasArg("lora_gateway")) {
-                String lora_gateway = WebServer_SERVER.arg("lora_gateway");
-                Serial.println("C'est le capteur.");
-            } else {
-                Serial.println("C'est une gateway.");
+            int LEN_lora_gateway = strlen(lora_gateaway_char);
+            Serial.println(LEN_lora_gateway);
+
+
+            // Enregistrement des valeurs dans la flash du micro-controller
+            Serial.println("Mise en flash du name ...");
+            preferences.putString("name", name);
+            Serial.println(preferences.getString("name", "lol"));
+            preferences.putString("lora_address", lora_address);
+
+            if(LEN_lora_gateway == 0) {
+                Serial.println("C'est une gateway");
                 // ICI IL FAUT RENTRER LES INFOS DU SENSOR COMMUNITY PROJECT !!!
+
+                // Il faut récupère les informations SSID et PASSWORD
+                preferences.putString("ssid", ssid);
+                preferences.putString("password", password);
+            } else {
+                preferences.putString("lora_gateway", lora_gateway);
+                Serial.println("C'est le capteur");
             }
         }
     }
@@ -156,13 +196,16 @@ void WebServer_404(){
 }
 
 String SendHTML(){
-    String ptr = "<!DOCTYPE html><html><head><title>IOT GROUP 19</title><style>*{font-family: Arial,sans-serif;}</style></head><body><h1>IOT WEB SERVER</h1><fieldset><legend>Configuration MODE : <strong id='confMode'></strong></legend><fieldset>If you check \"gateway mode\", you will have to fill in the sensor community project information. <br>Otherwise, you will have to fill in the sensor information and the gateway address.</fieldset><form action='/updateDatas' method='get'><p><label>Name :</label><input name='name' type='text' placeholder='Lora Gateway / Sensor xxx'></p><p><label for='inputIsGateway'>Gateway :</label><input name='inputIsGateway' id='inputIsGateway' type='checkbox' onclick=\"isGateway()\" checked></p><p><label>LoRa Address :</label><input name='lora_address' type='text' placeholder='0xAA'></p><p id='p_lora_gateway' style='display: none'><label>LoRa Gateway :</label><input name='lora_gateway' type='text' placeholder='0xAB'></p><p><input type='submit'></p></form></fieldset><script>isGateway();function isGateway() {if (document.getElementById('inputIsGateway').checked) {document.getElementById('confMode').innerHTML = 'Gateway';document.getElementById('p_lora_gateway').style.display = 'none';}if (!document.getElementById('inputIsGateway').checked) {document.getElementById('confMode').innerHTML = 'Sensor';document.getElementById('p_lora_gateway').style.display = 'block';}}</script></body></html>";
+    String ptr = "<!DOCTYPE html> <html> <head><title>IOT GROUP 19</title>     <style>* {         font-family: Arial, sans-serif;     }</style> </head> <body><h1>IOT WEB SERVER</h1> <fieldset>     <legend>Configuration MODE : <strong id='confMode'></strong></legend>     <fieldset>If you check <em>gateway mode</em>, you will have to fill in the sensor community project information. <br>Otherwise,         you will have to fill in the sensor information and the gateway address.     </fieldset>     <form action='/updateDatas' method='get'><p><label>Name :</label><input name='name' type='text'                                                                             placeholder='Lora Gateway / Sensor xxx'></p>         <p>             <label for='inputIsGateway'>Gateway :</label>             <input name='inputIsGateway' id='inputIsGateway' type='checkbox' onclick='isGateway()' checked>         </p>          <p>             <label>LoRa Address :</label>             <input name='lora_address' type='text' placeholder='0xAA'>         </p>          <div id='sensorFields' style='display: none'>             <p>                 <label>LoRa Gateway :</label>                 <input name='lora_gateway' type='text' placeholder='0xAB'>             </p>         </div>          <div id='gatewayFields' style='display: none'>             <p>                 <label>SSID :</label>                 <input name='ssid' type='text' placeholder='ssid'>             </p>              <p>                 <label>Password :</label>                 <input name='password' type='text' placeholder='password'>             </p>         </div>         <p><input type='submit'></p></form> </fieldset> <script>isGateway();  function isGateway() {     if (document.getElementById('inputIsGateway').checked) {         document.getElementById('confMode').innerHTML = 'Gateway';         document.getElementById('sensorFields').style.display = 'none';         document.getElementById('gatewayFields').style.display = 'block';     }     if (!document.getElementById('inputIsGateway').checked) {         document.getElementById('confMode').innerHTML = 'Sensor';         document.getElementById('sensorFields').style.display = 'block';         document.getElementById('gatewayFields').style.display = 'none';     } }</script> </body> </html> ";
     return ptr;
 }
 
 void setup() {
-    Serial.begin(115200);
-
+    Serial.begin(9600);
+    getPersistentDatas();
+    Serial.println("SENSOR NAME => "); Serial.println(_NAME);
+    
+    
     /**
      * Connection au WIFI CLIENT.
      * Si au bout de 20 secondes la connexion au wifi échoue, on créer l'access point
