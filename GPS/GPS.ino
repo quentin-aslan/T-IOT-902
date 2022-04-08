@@ -15,7 +15,7 @@ HardwareSerial ss(2); // Connexion série au GPS.
 void getGPSDatas() {
     Serial.println("--------------------------------");
 
-    Serial.println("nombre de satellites contacté : ");
+    Serial.println("Nombre de satellites contacté : ");
     Serial.println(gps.satellites.value());
 
     Serial.println("Longitude (lng) : ");
