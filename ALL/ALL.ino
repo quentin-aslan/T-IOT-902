@@ -9,6 +9,8 @@
  */
 
 // PERSITENT DATAS
+
+// #include "persistentDatas.h"
 #include <Preferences.h>
 Preferences preferences;
 // Récupère les informations stocké en flash
@@ -19,12 +21,27 @@ String _SSID = "";
 String _PASSWORD = "";
 
 void getPersistentDatas() {
+    Serial.println("----------- INIT PERSISTENT DATAS -----------");
     preferences.begin("quentin", false);
     _NAME = preferences.getString("name", "");
     _LORA_ADDRESS = preferences.getString("lora_address", "");
     _LORA_GATEWAY = preferences.getString("lora_gateway", "");
     _SSID = preferences.getString("ssid", "");
     _PASSWORD = preferences.getString("password", "");
+    Serial.println("SENSOR NAME => "); Serial.println(_NAME);
+}
+
+// Récupère le CHIP ID de l'ESP32, requis pour envoyé les données au sensor community project !
+uint32_t _CHIP_ID = 0;
+void getESPChipID() {
+    Serial.println("----------- GET ESP CHIP INFO -----------");
+    for(int i=0; i<17; i=i+8) {
+        _CHIP_ID |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
+    }
+
+    Serial.printf("ESP32 Chip model = %s Rev %d\n", ESP.getChipModel(), ESP.getChipRevision());
+    Serial.printf("This chip has %d cores\n", ESP.getChipCores());
+    Serial.printf("Chip ID: "); Serial.println(_CHIP_ID);
 }
 
 // LoRA
@@ -54,15 +71,13 @@ void sendMessage(String payload) {
     LoRa.write(LORA_destination);              // add LORA_destination address.
     LoRa.write(LORA_localAddress);             // add sender address.
     LoRa.write(LORA_msgCount);                 // add message ID.
-    LoRa.write(payload.length());         // add payload length.
-    LoRa.print(payload);                  // add payload.
-    LoRa.endPacket();                     // finish packet and send it.
+    LoRa.write(payload.length());              // add payload length.
+    LoRa.print(payload);                       // add payload.
+    LoRa.endPacket();                          // finish packet and send it.
     LORA_msgCount++;                           // increment message ID.
 }
 
-/**
- * WIFI CLIENT & ACCESS POINT
- */
+// WIFI CLIENT & ACCESS POINT
 bool WIFI_isStarted = false;
 
 // WIFI CLIENT
@@ -189,6 +204,7 @@ void WebServer_UpdateDatas() {
     }
 
     WebServer_SERVER.send(200, "text/html", SendHTML());
+    ESP.restart(); // On restart l'ESP si l'utilisateur à remplie de bonnes informations !
 }
 
 void WebServer_404(){
@@ -202,9 +218,8 @@ String SendHTML(){
 
 void setup() {
     Serial.begin(9600);
+    getESPChipID();
     getPersistentDatas();
-    Serial.println("SENSOR NAME => "); Serial.println(_NAME);
-    
     
     /**
      * Connection au WIFI CLIENT.

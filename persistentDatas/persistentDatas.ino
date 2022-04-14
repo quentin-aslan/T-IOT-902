@@ -6,7 +6,6 @@ void setup() {
     Serial.begin(115200);
     Serial.println();
 
-
     preferences.begin("quentin", false);
 
     // Dans cette exemple j'utilise getUInt mais il y à d'autre fonctions pour manipuler d'autres type de données.
