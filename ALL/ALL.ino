@@ -28,7 +28,12 @@ void getPersistentDatas() {
     _LORA_GATEWAY = preferences.getString("lora_gateway", "");
     _SSID = preferences.getString("ssid", "");
     _PASSWORD = preferences.getString("password", "");
-    Serial.println("SENSOR NAME => "); Serial.println(_NAME);
+
+    Serial.print("SENSOR NAME => "); Serial.println(_NAME);
+    Serial.print("_LORA_ADDRESS => "); Serial.println(_LORA_ADDRESS);
+    Serial.print("_LORA_GATEWAY => "); Serial.println(_LORA_GATEWAY);
+    Serial.print("_SSID => "); Serial.println(_SSID);
+    Serial.print("_PASSWORD => "); Serial.println(_PASSWORD);
 }
 
 // Récupère le CHIP ID de l'ESP32, requis pour envoyé les données au sensor community project !
@@ -46,35 +51,145 @@ void getESPChipID() {
 
 // LoRA
 #include <M5LoRa.h>
+bool LORA_isStarted = false;
 
 // Initialise le module LoRa
 void initLoraModule(){
-    Serial.println("LoRa Duplex Reinitialization");
+    Serial.println("----------- INIT LORA MODULE -----------");
 
     // override the default CS, reset, and IRQ pins (optional).  覆盖默认的 CS、复位和 IRQ 引脚（可选）
     LoRa.setPins();// set CS, reset, IRQ pin.  设置 CS、复位、IRQ 引脚
 
     if (!LoRa.begin(868E6)) {             // initialize ratio at 868 MHz.  868 MHz 时的初始化比率
         Serial.println("LoRa init failed. Check your connections.");
-        while (true);                       // if failed, do nothing.  如果失败，什么都不做
     }
 
     Serial.println("LoRa init succeeded.");
+    LORA_isStarted = true;
 }
 
 // Envoie un message en LoRa
 byte LORA_msgCount = 0; // Pour ID unique
-byte LORA_localAddress = 0xFF; // ⚠️ ADRESSE DU MICRO-CONTROLLEUR
-byte LORA_destination = 0xAF;  // ⚠️ ADRESSE DE DESTINATION
+
 void sendMessage(String payload) {
+    if(LORA_isStarted == false) {
+        Serial.println("LORA SEND MESSAGE ERROR : LORA IS NOT INIT");
+        return;
+    }
+
+    Serial.println("------------- LORA SEND MESSAGE --------------");
     LoRa.beginPacket();                   // start packet.
-    LoRa.write(LORA_destination);              // add LORA_destination address.
-    LoRa.write(LORA_localAddress);             // add sender address.
+
+    // On convertie les adresses en string
+
+    int loraGateway = convertLoraAddress(_LORA_GATEWAY);
+    int loraAddress = convertLoraAddress(_LORA_ADDRESS);
+
+    Serial.print("loraGateway => "); Serial.println(loraGateway);
+    Serial.print("loraAddress => "); Serial.println(loraAddress);
+
+
+    LoRa.write(loraGateway);              // add LORA_destination address
+    LoRa.write(loraAddress);              // add LORA_ADDRESS address
     LoRa.write(LORA_msgCount);                 // add message ID.
     LoRa.write(payload.length());              // add payload length.
     LoRa.print(payload);                       // add payload.
     LoRa.endPacket();                          // finish packet and send it.
     LORA_msgCount++;                           // increment message ID.
+    Serial.println("Fin de l'envoie en LoRa");
+}
+
+// Fonction appelé lorsqu'un message LoRa est reçu
+void onReceive(int packetSize) {
+    Serial.println("------------- LORA RECEIVE MESSAGE --------------");
+    if (packetSize == 0 || LORA_isStarted == false) { // Si il n'y a pas de packet ou que le module n'est pas init on s'arrete la
+        Serial.println("return");
+        return;
+    }
+
+    // read packet header bytes:
+    int recipient = LoRa.read();          // recipient address.
+    byte sender = LoRa.read();            // sender address.
+    byte incomingMsgId = LoRa.read();     // incoming msg ID.
+    byte incomingLength = LoRa.read();    // incoming msg length.
+
+    String incoming = "";
+
+    while (LoRa.available()) {
+        incoming += (char)LoRa.read();
+    }
+
+    if (incomingLength != incoming.length()) {   // check length for error.
+        Serial.println("error: message length does not match length");
+        return;                             // skip rest of function.
+    }
+
+    // Vérifie que le message est pour moi ou qu'il est sur l'adresse de broadcast (0xFF)
+
+    // On convertie l'adresse STRING en Byte.
+    Serial.print("Recipient =>"); Serial.println(recipient);
+
+    int loraAddress = convertLoraAddress(_LORA_ADDRESS);
+    Serial.print("loraAddress =>"); Serial.println(loraAddress);
+
+    if (recipient != loraAddress && recipient != 0xFF) {
+        Serial.println("This message is not for me.");
+        return;
+    }
+
+    // if message is for this device, or broadcast, print details:
+    Serial.println("Received from: 0x" + String(sender, HEX));
+    Serial.println("Sent to: 0x" + String(recipient, HEX));
+    Serial.println("Message ID: " + String(incomingMsgId));
+    Serial.println("Message length: " + String(incomingLength));
+    Serial.println("Message: " + incoming);
+    Serial.println("RSSI: " + String(LoRa.packetRssi()));
+    Serial.println("Snr: " + String(LoRa.packetSnr()));
+    Serial.println();
+}
+
+// Convertie les adresses LoRa stocké dans la flash en Byte.
+byte convertLoraAddress(String address) {
+    //Serial.println("-------- convertLoraAddress --------");
+    //test format : XX char ou 0xXX
+    int offset;
+    byte convAddr = 0;
+
+    const char* addressChar = address.c_str();
+    
+    if (strlen(addressChar) == 4 && addressChar[0] == '0' && addressChar[1] == 'x'){
+        offset = 2;
+    } else {
+        if (strlen(addressChar) == 2) {
+            offset = 0;
+        } else {
+            //BAD FORMAT
+            return -1;
+        }
+    }
+
+    //Tu converti le caractère de poids fort en byte
+    convAddr += asciiHexToByte(addressChar[offset]);
+    convAddr << 4;
+    convAddr += asciiHexToByte(addressChar[offset+1]);
+    //Serial.print("convAddr => "); Serial.println(convAddr);
+    return convAddr;
+}
+
+byte asciiHexToByte(char c)
+{
+    Serial.print("char => "); Serial.println(c);
+    if(c >= '0' && c <= '9') {
+        return c - 30;
+    }
+    if(c >= 'A' && c <= 'F') {
+        return c - 65 + 10;
+    }
+    if(c>='a' && c <= 'f') {
+        return c - 97 + 10;
+    }
+
+    return 0; // ici pour l'exemple genre adresse 0 ou -1 (255 si tu es en non signé) n'est pas une adresse valide et te sert de code d'erreur.
 }
 
 // WIFI CLIENT & ACCESS POINT
@@ -119,6 +234,8 @@ IPAddress AP_gateway(192,168,3,1);
 IPAddress AP_subnet(255,255,255,0);
 
 void startWifiAccessPoint() {
+    Serial.println("----------- START WIFI ACCESS POINT -----------");
+
     Serial.println("\n[*] Creating AP ...");
     WiFi.mode(WIFI_AP);
     WiFi.softAP(AP_ssid, AP_password);
@@ -186,7 +303,8 @@ void WebServer_UpdateDatas() {
             // Enregistrement des valeurs dans la flash du micro-controller
             Serial.println("Mise en flash du name ...");
             preferences.putString("name", name);
-            Serial.println(preferences.getString("name", "lol"));
+
+            // FIXME: Ici on pourrais changer et dire que c'est pas un string mais un byte, ça serais surement plsu suimple pour la suite ?!
             preferences.putString("lora_address", lora_address);
 
             if(LEN_lora_gateway == 0) {
@@ -220,14 +338,11 @@ void setup() {
     Serial.begin(9600);
     getESPChipID();
     getPersistentDatas();
-    
-    /**
-     * Connection au WIFI CLIENT.
-     * Si au bout de 20 secondes la connexion au wifi échoue, on créer l'access point
-     */
-    tryConnectWifiClient();
+    initLoraModule();
 
-    //initLoraModule();
+    // Connection au WIFI CLIENT.
+    // Si au bout de 20 secondes la connexion au wifi échoue, on créer l'access point
+    tryConnectWifiClient();
 }
 
 void loop(){
@@ -239,4 +354,11 @@ void loop(){
         WebServer_SERVER.handleClient();
     }
 
+    // Lora RECEIVE
+    if(LORA_isStarted) {
+        onReceive(LoRa.parsePacket());
+        sendMessage("Youhou, c'est moi");
+    }
+    
+    Serial.println("Hop, loop finis, on recommence");
 }
