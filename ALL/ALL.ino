@@ -3,12 +3,9 @@
 #include <WiFi.h>
 #include <WebServer.h> // https://github.com/espressif/arduino-esp32/tree/master/libraries/WebServer
 #include <string.h>
+#include <HTTPClient.h>
 
-/**
- * DECLARE VARIABLE FOR ALL PROGRAM
- */
-
-// PERSITENT DATAS
+// [GATEWAY & SENSOR] PERSITENT DATAS
 
 // #include "persistentDatas.h"
 #include <Preferences.h>
@@ -49,7 +46,7 @@ void getESPChipID() {
     Serial.printf("Chip ID: "); Serial.println(_CHIP_ID);
 }
 
-// LoRA
+// [GATEWAY & SENSOR] LoRA
 #include <M5LoRa.h>
 bool LORA_isStarted = false;
 
@@ -192,7 +189,7 @@ byte asciiHexToByte(char c)
     return 0; // ici pour l'exemple genre adresse 0 ou -1 (255 si tu es en non signé) n'est pas une adresse valide et te sert de code d'erreur.
 }
 
-// WIFI CLIENT & ACCESS POINT
+// [GATEWAY & SENSOR] WIFI CLIENT & ACCESS POINT
 bool WIFI_isStarted = false;
 
 // WIFI CLIENT
@@ -246,10 +243,8 @@ void startWifiAccessPoint() {
     WIFI_isStarted = true;
 }
 
-/**
- * WEB SERVER
- * https://lastminuteengineers.com/creating-esp32-web-server-arduino-ide/
- */
+// [GATEWAY & SENSOR] WEB SERVER
+// https://lastminuteengineers.com/creating-esp32-web-server-arduino-ide/
 
 int WebServer_PORT = 80;
 WebServer WebServer_SERVER(WebServer_PORT);
@@ -334,6 +329,37 @@ String SendHTML(){
     return ptr;
 }
 
+
+// [GATEWAY] HTTP REQUEST
+const char* serverName_DHT22 = "https://api.sensor.community/v1/push-sensor-data/";
+const char* endpoints_localApi = "http://192.168.1.74:4443/test";
+void sendHTTPRequest_DHT22(float value1, float temperatureFloat, float humidityFloat) {
+    // ON ENVOIE LES DATAS AU SERVEUR
+    HTTPClient http;
+
+    char* pm1 = "19";
+    char* temperature = "22";
+    char* humidity = "60";
+
+    // ALL
+    char datas[200];
+    sprintf(datas, "{\"software_version\":\"%s\",\"sensordatavalues\":[{\"value_type\":\"P1\",\"value\":\"%s\"},{\"value_type\":\"temperature\",\"value\":\"%s\"},{\"value_type\":\"humidity\",\"value\":\"%s\"}]}", "quentin_dev", pm1, temperature, humidity);
+    //sprintf(datas, "{\"humidity\":\"%f\",\"temperature\":\"%f\",\"realFeel\":\"%f\",\"value\":\"%s\"}", humidityFloat, temperatureFloat, value1, SENSOR_NAME_DHT22);
+
+    Serial.println(datas);
+    http.begin(endpoints_localApi);
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("X-Sensor", "esp32-4478969"); // esp32-$_CHIP-ID
+    http.addHeader("X-PIN", "1");
+    int datasStatus = http.POST(datas);
+    Serial.print("HTTP Response code DHT22: ");
+    Serial.println(datasStatus);
+    http.end();
+}
+
+
+// SETUP & LOOP => PROGRAMM
+
 void setup() {
     Serial.begin(9600);
     getESPChipID();
@@ -357,8 +383,9 @@ void loop(){
     // Lora RECEIVE
     if(LORA_isStarted) {
         onReceive(LoRa.parsePacket());
-        sendMessage("Youhou, c'est moi");
     }
     
     Serial.println("Hop, loop finis, on recommence");
+    delay(1000);
+    sendHTTPRequest_DHT22(1.1, 2.2, 3.3);
 }
