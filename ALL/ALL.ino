@@ -147,7 +147,7 @@ void onReceive(int packetSize) {
 
 // Convertie les adresses LoRa stocké dans la flash en Byte.
 byte convertLoraAddress(String address) {
-    //Serial.println("-------- convertLoraAddress --------");
+    // Serial.println("-------- convertLoraAddress --------");
     //test format : XX char ou 0xXX
     int offset;
     byte convAddr = 0;
@@ -165,11 +165,11 @@ byte convertLoraAddress(String address) {
         }
     }
 
-    //Tu converti le caractère de poids fort en byte
+    // Tu converti le caractère de poids fort en byte
     convAddr += asciiHexToByte(addressChar[offset]);
-    convAddr << 4;
+    convAddr = convAddr << 4;
     convAddr += asciiHexToByte(addressChar[offset+1]);
-    //Serial.print("convAddr => "); Serial.println(convAddr);
+    // Serial.print("convAddr => "); Serial.println(convAddr);
     return convAddr;
 }
 
@@ -177,13 +177,13 @@ byte asciiHexToByte(char c)
 {
     Serial.print("char => "); Serial.println(c);
     if(c >= '0' && c <= '9') {
-        return c - 30;
+        return c - '0';
     }
     if(c >= 'A' && c <= 'F') {
-        return c - 65 + 10;
+        return c - 'A' + 10;
     }
     if(c>='a' && c <= 'f') {
-        return c - 97 + 10;
+        return c - 'a' + 10;
     }
 
     return 0; // ici pour l'exemple genre adresse 0 ou -1 (255 si tu es en non signé) n'est pas une adresse valide et te sert de code d'erreur.
@@ -387,5 +387,6 @@ void loop(){
     
     Serial.println("Hop, loop finis, on recommence");
     delay(1000);
-    sendHTTPRequest_DHT22(1.1, 2.2, 3.3);
+    //sendHTTPRequest_DHT22(1.1, 2.2, 3.3);
+    sendMessage("salut salut");
 }
