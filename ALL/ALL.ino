@@ -193,8 +193,6 @@ byte asciiHexToByte(char c)
 bool WIFI_isStarted = false;
 
 // WIFI CLIENT
-//const char* ssid = "Mi 11 Lite";
-//const char* password = "quentin1";
 
 // Si au bout de 20 secondes la connexion au wifi échoue, on créer l'access point
 void tryConnectWifiClient() {
@@ -244,6 +242,7 @@ void startWifiAccessPoint() {
 }
 
 // [GATEWAY & SENSOR] WEB SERVER
+
 // https://lastminuteengineers.com/creating-esp32-web-server-arduino-ide/
 
 int WebServer_PORT = 80;
@@ -329,12 +328,10 @@ String SendHTML(){
     return ptr;
 }
 
-
 // [GATEWAY] HTTP REQUEST
-const char* serverName_DHT22 = "https://api.sensor.community/v1/push-sensor-data/";
-const char* endpoints_localApi = "http://192.168.1.74:4443/test";
-void sendHTTPRequest_DHT22(float value1, float temperatureFloat, float humidityFloat) {
-    // ON ENVOIE LES DATAS AU SERVEUR
+const char* endpoint = "https://api.sensor.community/v1/push-sensor-data/";
+// Envoie les données au sensor community project (temperature, humidité, pm2.5)
+void sendRequestSensorCommunity(float pm1, float temperatureFloat, float humidityFloat) {
     HTTPClient http;
 
     char* pm1 = "19";
@@ -344,15 +341,16 @@ void sendHTTPRequest_DHT22(float value1, float temperatureFloat, float humidityF
     // ALL
     char datas[200];
     sprintf(datas, "{\"software_version\":\"%s\",\"sensordatavalues\":[{\"value_type\":\"P1\",\"value\":\"%s\"},{\"value_type\":\"temperature\",\"value\":\"%s\"},{\"value_type\":\"humidity\",\"value\":\"%s\"}]}", "quentin_dev", pm1, temperature, humidity);
-    //sprintf(datas, "{\"humidity\":\"%f\",\"temperature\":\"%f\",\"realFeel\":\"%f\",\"value\":\"%s\"}", humidityFloat, temperatureFloat, value1, SENSOR_NAME_DHT22);
 
     Serial.println(datas);
     http.begin(endpoints_localApi);
+
     http.addHeader("Content-Type", "application/json");
     http.addHeader("X-Sensor", "esp32-4478969"); // esp32-$_CHIP-ID
     http.addHeader("X-PIN", "1");
+
     int datasStatus = http.POST(datas);
-    Serial.print("HTTP Response code DHT22: ");
+    Serial.print("HTTP Response code : ");
     Serial.println(datasStatus);
     http.end();
 }
@@ -387,6 +385,6 @@ void loop(){
     
     Serial.println("Hop, loop finis, on recommence");
     delay(1000);
-    //sendHTTPRequest_DHT22(1.1, 2.2, 3.3);
+    //sendRequestSensorCommunity(1.1, 2.2, 3.3);
     sendMessage("salut salut");
 }
