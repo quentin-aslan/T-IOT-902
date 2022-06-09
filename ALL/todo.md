@@ -1,0 +1,6 @@
+- [ ] Check Lora com munication with 2 esp32
+- [ ] Get PM2 Datas and send to Gateway
+- [ ] Check configuration sensor (AP)
+- [ ] Chech configuration gateway (AP)
+- [ ] Send datas to backend
+- [ ] Send datas to sensor community project
